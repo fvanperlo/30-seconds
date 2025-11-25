@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { AppState, GameCard } from './types';
 import { TERMS_PER_CARD, DEFAULT_CARD_COUNT } from './constants';
-import { generateTermsFromTopic, expandTermList } from './services/geminiService';
 import { CardPreview } from './components/CardPreview';
 import { Button } from './components/Button';
 import { Upload, Copy, Settings, RotateCcw, Sparkles, Download, Palette } from 'lucide-react';
@@ -11,7 +10,6 @@ import html2canvas from 'html2canvas';
 export default function App() {
   // State
   const [appState, setAppState] = useState<AppState>(AppState.INPUT);
-  const [topic, setTopic] = useState('');
   const [cardTitle, setCardTitle] = useState('30 Seconds');
   const [categoryLabel, setCategoryLabel] = useState('');
   const [manualText, setManualText] = useState('');
@@ -40,6 +38,9 @@ export default function App() {
     setError(null);
     setAppState(AppState.GENERATING);
 
+    // Simulate a short delay for UX consistency
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     try {
       let terms: string[] = [];
       
@@ -54,35 +55,13 @@ export default function App() {
 
       const neededTerms = cardCount * TERMS_PER_CARD;
 
-      // 2. Logic: If manual terms exist but aren't enough, OR no manual terms but topic exists
-      if (terms.length < neededTerms) {
-        if (!topic && terms.length === 0) {
-          throw new Error("Voer begrippen in of kies een onderwerp.");
-        }
+      // 2. Logic: Strict validation for manual terms
+      if (terms.length === 0) {
+          throw new Error("Voer een lijst met begrippen in om te beginnen.");
+      }
 
-        if (topic) {
-          // If we have some terms, expand. If none, generate fresh.
-          if (terms.length > 0) {
-             const newTerms = await expandTermList(terms, neededTerms, topic);
-             terms = newTerms;
-          } else {
-             const generated = await generateTermsFromTopic(topic, cardCount);
-             terms = generated;
-          }
-        } else {
-           // No topic provided, but not enough terms.
-           // We can only loop existing terms or warn. 
-           // Let's just shuffle and loop to fill if user didn't ask for AI help explicitly via topic
-           // Actually, better UX: Ask them to provide more or reduce card count.
-           // For this MVP, we will cycle the terms if no topic is present to generate more.
-           if (terms.length === 0) throw new Error("Geen begrippen gevonden.");
-           
-           let extendedTerms = [...terms];
-           while (extendedTerms.length < neededTerms) {
-             extendedTerms = [...extendedTerms, ...terms];
-           }
-           terms = extendedTerms;
-        }
+      if (terms.length < neededTerms) {
+          throw new Error(`Je hebt te weinig begrippen. Voor ${cardCount} kaartjes heb je ${neededTerms} woorden nodig (5 per kaart). Je hebt er nu ${terms.length}. Voeg meer woorden toe of verminder het aantal kaartjes.`);
       }
 
       // 3. Shuffle terms
@@ -94,14 +73,14 @@ export default function App() {
         const start = i * TERMS_PER_CARD;
         const cardTerms = shuffled.slice(start, start + TERMS_PER_CARD);
         
-        // If we still ran out (edge case), fill with placeholders
+        // Safety check (though validated above)
         while (cardTerms.length < TERMS_PER_CARD) {
            cardTerms.push("???");
         }
 
         newCards.push({
           id: `card-${i}`,
-          category: categoryLabel || topic || 'Gemengd',
+          category: categoryLabel || 'Gemengd',
           terms: cardTerms
         });
       }
@@ -118,13 +97,8 @@ export default function App() {
   const generatePDF = async () => {
     if (!printContainerRef.current) return;
     
-    // Create PDF: A4 Landscape or Portrait? 
-    // Cards are 9cm wide. A4 width is 21cm. 2 cards fit width-wise (18cm) with margins.
-    // Let's do A4 Portrait.
+    // Create PDF: A4 Portrait
     const pdf = new jsPDF('p', 'mm', 'a4');
-    
-    // Wait for render if needed, but we are in preview so DOM is ready.
-    // We render each card individually to high-res canvas and place on PDF
     
     const cardElements = printContainerRef.current.querySelectorAll('.printable-card');
     
@@ -136,9 +110,6 @@ export default function App() {
     const cardH = 50; // mm
     const gapX = 10; // 10mm horizontal gap
     const gapY = 10; // 10mm vertical gap
-    
-    // Show loading state implicitly by async await
-    // Note: html2canvas is async.
     
     for (let i = 0; i < cardElements.length; i++) {
       const el = cardElements[i] as HTMLElement;
@@ -165,7 +136,7 @@ export default function App() {
       pdf.addImage(imgData, 'JPEG', x, y, cardW, cardH);
     }
     
-    pdf.save(`${topic || '30-seconds'}-kaarten.pdf`);
+    pdf.save(`30-seconds-kaartjes.pdf`);
   };
 
   return (
@@ -214,22 +185,6 @@ export default function App() {
                 </h2>
                 
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Onderwerp (voor AI)
-                    </label>
-                    <input 
-                      type="text" 
-                      value={topic}
-                      onChange={(e) => setTopic(e.target.value)}
-                      placeholder="Bijv. Geschiedenis, Biologie, Kerstmis..."
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">
-                      Dit onderwerp gebruikt de AI om begrippen te verzinnen.
-                    </p>
-                  </div>
-
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -281,17 +236,6 @@ export default function App() {
                   </div>
                 </div>
               </div>
-
-               <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 text-blue-800 text-sm">
-                  <h3 className="font-semibold flex items-center mb-2">
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Hoe het werkt
-                  </h3>
-                  <p>
-                    Je kunt zelf begrippen invoeren, of alleen een onderwerp opgeven en onze AI de begrippen laten bedenken.
-                    Als je lijst te kort is, vult de AI deze automatisch aan!
-                  </p>
-               </div>
             </div>
 
             {/* Right Column: Input */}
@@ -343,7 +287,7 @@ export default function App() {
                     className="w-full h-12 text-lg"
                     icon={<Sparkles />}
                   >
-                    Genereer Kaartjes
+                    Maak Kaartjes
                   </Button>
                 </div>
               </div>
@@ -355,8 +299,8 @@ export default function App() {
         {appState === AppState.GENERATING && (
           <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
              <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-6"></div>
-             <h2 className="text-2xl font-bold text-slate-800">Even geduld...</h2>
-             <p className="text-slate-500 mt-2">De AI verzint de beste begrippen voor jouw spel.</p>
+             <h2 className="text-2xl font-bold text-slate-800">Kaartjes maken...</h2>
+             <p className="text-slate-500 mt-2">Je begrippen worden door elkaar geschud en op kaartjes gezet.</p>
           </div>
         )}
 
