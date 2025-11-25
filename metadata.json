@@ -1,0 +1,5 @@
+{
+  "name": "30 seconds kaartjesmaker",
+  "description": "Genereer 30 Seconds spelkaarten van eigen begrippenlijsten of met behulp van AI. Exporteer direct naar PDF.",
+  "requestFramePermissions": []
+}
