@@ -8,9 +8,18 @@ interface CardPreviewProps {
   id?: string;
   title?: string;
   category?: string;
+  maxTerms?: number;
 }
 
-export const CardPreview: React.FC<CardPreviewProps> = ({ card, index, className = '', id, title, category }) => {
+export const CardPreview: React.FC<CardPreviewProps> = ({ 
+  card, 
+  index, 
+  className = '', 
+  id, 
+  title, 
+  category,
+  maxTerms = 5
+}) => {
   return (
     <div 
       id={id}
@@ -35,12 +44,12 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ card, index, className
       <div className="flex-1 flex flex-col justify-center px-4 py-2 bg-slate-50 relative">
         <ul className="space-y-1.5 w-full">
           {card.terms.map((term, i) => (
-            <li key={i} className="text-slate-900 font-bold text-sm leading-snug border-b border-slate-200 last:border-0 pb-1">
+            <li key={i} className="text-slate-900 font-bold text-sm leading-snug border-b border-slate-200 last:border-0 pb-1 truncate">
               {term}
             </li>
           ))}
-          {/* Fill empty spots if any */}
-          {Array.from({ length: 5 - card.terms.length }).map((_, i) => (
+          {/* Fill empty spots if any to reach maxTerms */}
+          {Array.from({ length: Math.max(0, maxTerms - card.terms.length) }).map((_, i) => (
              <li key={`empty-${i}`} className="text-slate-300 text-sm leading-snug border-b border-slate-200 last:border-0 pb-1">
              ...
            </li>

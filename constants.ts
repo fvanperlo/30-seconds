@@ -9,4 +9,4 @@ export const ROWS = 4;
 
 // Default values
 export const DEFAULT_CARD_COUNT = 8;
-export const TERMS_PER_CARD = 5;
+export const DEFAULT_TERMS_PER_CARD = 5;

@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { TERMS_PER_CARD } from "../constants";
+import { DEFAULT_TERMS_PER_CARD } from "../constants";
 
 // Initialize Gemini Client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -10,9 +10,10 @@ const modelName = 'gemini-2.5-flash';
  */
 export const generateTermsFromTopic = async (
   topic: string, 
-  numberOfCards: number
+  numberOfCards: number,
+  termsPerCard: number = DEFAULT_TERMS_PER_CARD
 ): Promise<string[]> => {
-  const totalTermsNeeded = numberOfCards * TERMS_PER_CARD;
+  const totalTermsNeeded = numberOfCards * termsPerCard;
 
   const prompt = `
     Je bent een expert in het bordspel "30 Seconds". 

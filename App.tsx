@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { AppState, GameCard } from './types';
-import { TERMS_PER_CARD, DEFAULT_CARD_COUNT } from './constants';
+import { DEFAULT_TERMS_PER_CARD, DEFAULT_CARD_COUNT } from './constants';
 import { CardPreview } from './components/CardPreview';
 import { Button } from './components/Button';
 import { Upload, Copy, Settings, RotateCcw, Sparkles, Download, Palette } from 'lucide-react';
@@ -14,6 +14,7 @@ export default function App() {
   const [categoryLabel, setCategoryLabel] = useState('');
   const [manualText, setManualText] = useState('');
   const [cardCount, setCardCount] = useState(DEFAULT_CARD_COUNT);
+  const [termsPerCard, setTermsPerCard] = useState(DEFAULT_TERMS_PER_CARD);
   const [cards, setCards] = useState<GameCard[]>([]);
   const [error, setError] = useState<string | null>(null);
   
@@ -53,7 +54,7 @@ export default function App() {
           .filter(t => t.length > 0);
       }
 
-      const neededTerms = cardCount * TERMS_PER_CARD;
+      const neededTerms = cardCount * termsPerCard;
 
       // 2. Logic: Strict validation for manual terms
       if (terms.length === 0) {
@@ -61,7 +62,7 @@ export default function App() {
       }
 
       if (terms.length < neededTerms) {
-          throw new Error(`Je hebt te weinig begrippen. Voor ${cardCount} kaartjes heb je ${neededTerms} woorden nodig (5 per kaart). Je hebt er nu ${terms.length}. Voeg meer woorden toe of verminder het aantal kaartjes.`);
+          throw new Error(`Je hebt te weinig begrippen. Voor ${cardCount} kaartjes heb je ${neededTerms} woorden nodig (${termsPerCard} per kaart). Je hebt er nu ${terms.length}. Voeg meer woorden toe of verminder het aantal kaartjes.`);
       }
 
       // 3. Shuffle terms
@@ -70,11 +71,11 @@ export default function App() {
       // 4. Create Cards
       const newCards: GameCard[] = [];
       for (let i = 0; i < cardCount; i++) {
-        const start = i * TERMS_PER_CARD;
-        const cardTerms = shuffled.slice(start, start + TERMS_PER_CARD);
+        const start = i * termsPerCard;
+        const cardTerms = shuffled.slice(start, start + termsPerCard);
         
         // Safety check (though validated above)
-        while (cardTerms.length < TERMS_PER_CARD) {
+        while (cardTerms.length < termsPerCard) {
            cardTerms.push("???");
         }
 
@@ -226,12 +227,35 @@ export default function App() {
                         onChange={(e) => setCardCount(parseInt(e.target.value))}
                         className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
                       />
-                      <span className="font-mono bg-slate-100 px-3 py-1 rounded text-slate-700">
+                      <span className="font-mono bg-slate-100 px-3 py-1 rounded text-slate-700 w-12 text-center">
                         {cardCount}
                       </span>
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Woorden per kaartje
+                    </label>
+                    <div className="flex items-center space-x-4">
+                      <input 
+                        type="range" 
+                        min="3" 
+                        max="8" 
+                        step="1"
+                        value={termsPerCard}
+                        onChange={(e) => setTermsPerCard(parseInt(e.target.value))}
+                        className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <span className="font-mono bg-slate-100 px-3 py-1 rounded text-slate-700 w-12 text-center">
+                        {termsPerCard}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100">
                     <p className="text-xs text-slate-500 mt-1">
-                      Totaal benodigde begrippen: <span className="font-bold">{cardCount * TERMS_PER_CARD}</span>
+                      Totaal benodigde begrippen: <span className="font-bold">{cardCount * termsPerCard}</span>
                     </p>
                   </div>
                 </div>
@@ -363,6 +387,7 @@ export default function App() {
                       index={idx} 
                       title={cardTitle}
                       category={categoryLabel}
+                      maxTerms={termsPerCard}
                       className="printable-card shadow-md transform hover:scale-[1.02] transition-transform duration-200" 
                     />
                   ))}
