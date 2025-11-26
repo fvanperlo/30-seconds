@@ -52,7 +52,13 @@ export const expandTermList = async (
     const text = response.text;
     if (!text) return existingTerms;
 
-    const newTerms = JSON.parse(text) as string[];
+    // Clean up potential markdown code blocks provided by the AI
+    let cleanText = text.trim();
+    if (cleanText.startsWith('```')) {
+      cleanText = cleanText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
+    }
+
+    const newTerms = JSON.parse(cleanText) as string[];
     
     // Combine and deduplicate roughly (case insensitive check)
     const currentSet = new Set(existingTerms.map(t => t.toLowerCase()));
