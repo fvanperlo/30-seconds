@@ -6,65 +6,32 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const modelName = 'gemini-2.5-flash';
 
 /**
- * Generates a list of unique terms for the game based on a topic.
- */
-export const generateTermsFromTopic = async (
-  topic: string, 
-  numberOfCards: number,
-  termsPerCard: number = DEFAULT_TERMS_PER_CARD
-): Promise<string[]> => {
-  const totalTermsNeeded = numberOfCards * termsPerCard;
-
-  const prompt = `
-    Je bent een expert in het bordspel "30 Seconds". 
-    Genereer een lijst van ${totalTermsNeeded} unieke, Nederlandse begrippen voor het onderwerp: "${topic}".
-    De begrippen moeten divers zijn (personen, objecten, locaties, concepten) die bij dit vak of onderwerp horen.
-    De begrippen moeten moeilijk genoeg zijn voor het spel, maar wel raadbaar.
-    Geef ALLEEN de JSON array met strings terug.
-  `;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.STRING
-          }
-        }
-      }
-    });
-
-    const text = response.text;
-    if (!text) return [];
-    
-    const terms = JSON.parse(text) as string[];
-    return terms;
-  } catch (error) {
-    console.error("Error generating terms:", error);
-    throw new Error("Kon geen begrippen genereren. Probeer het opnieuw.");
-  }
-};
-
-/**
  * Expands a provided list of terms to meet the required count if there are too few.
+ * Uses the existing terms to infer the topic.
  */
 export const expandTermList = async (
   existingTerms: string[], 
-  neededCount: number,
-  topic: string
+  neededTotal: number
 ): Promise<string[]> => {
-  const missingCount = neededCount - existingTerms.length;
-  if (missingCount <= 0) return existingTerms;
+  const missingCount = neededTotal - existingTerms.length;
+  
+  // If we have enough, or no input to infer from, return original
+  if (missingCount <= 0 || existingTerms.length === 0) return existingTerms;
 
+  // Take a sample of existing terms to give context (max 20 to save tokens/confusion)
+  const sampleTerms = existingTerms.slice(0, 30);
+  
   const prompt = `
-    Ik maak een 30 Seconds spel over "${topic}".
-    Ik heb al deze begrippen: ${JSON.stringify(existingTerms.slice(0, 50))}.
-    Genereer nog ${missingCount + 5} NIEUWE, unieke begrippen die hierbij passen in het Nederlands.
-    Geef ALLEEN de JSON array met de nieuwe strings terug.
+    Ik heb een lijst met begrippen voor het spel "30 Seconds".
+    De huidige lijst bevat deze woorden: ${JSON.stringify(sampleTerms)}.
+    
+    Jouw taak:
+    1. Analyseer de bovenstaande woorden om het thema of het niveau te bepalen.
+    2. Genereer ${missingCount} NIEUWE, unieke begrippen die perfect in deze lijst passen.
+    3. De nieuwe begrippen moeten in het Nederlands zijn.
+    4. Zorg dat er geen dubbele begrippen tussen zitten die al in de lijst staan.
+    
+    Geef ALLEEN een JSON array terug met de nieuwe strings.
   `;
 
   try {
@@ -86,13 +53,15 @@ export const expandTermList = async (
     if (!text) return existingTerms;
 
     const newTerms = JSON.parse(text) as string[];
-    // Filter duplicates just in case
-    const uniqueNew = newTerms.filter(t => !existingTerms.includes(t));
     
-    return [...existingTerms, ...uniqueNew];
+    // Combine and deduplicate roughly (case insensitive check)
+    const currentSet = new Set(existingTerms.map(t => t.toLowerCase()));
+    const validNewTerms = newTerms.filter(t => !currentSet.has(t.toLowerCase()));
+    
+    return [...existingTerms, ...validNewTerms];
   } catch (error) {
     console.error("Error expanding list:", error);
-    // Fallback: just return existing list, application logic handles repetition/errors
+    // Fallback: return what we have, the UI will likely handle the shortfall by showing errors or filling with placeholders
     return existingTerms;
   }
 };
